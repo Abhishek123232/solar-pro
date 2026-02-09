@@ -3,19 +3,12 @@ import {
   Sun, Home, Trash2, LayoutDashboard, Database, 
   Zap, Calendar, BarChart3, LogIn, LogOut, 
   TrendingUp, Activity, ArrowDownLeft, ArrowUpRight,
-  MousePointerClick, ChevronLeft, ChevronRight, Info
+  MousePointerClick, Info, Menu, X
 } from 'lucide-react';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, BarChart, Bar 
 } from 'recharts';
-
-/**
- * UPDATED LOGIC:
- * 1. Total Exported = Sum of units sent to grid.
- * 2. Total Imported = Sum of units taken from grid.
- * 3. Net Exported = Total Exported - Total Imported.
- */
 
 const getEnv = (key) => {
   try {
@@ -39,6 +32,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [adminAuth, setAdminAuth] = useState(false);
   const [password, setPassword] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -85,20 +79,6 @@ export default function App() {
     return processedData.filter(d => d.date.startsWith(selectedYear));
   }, [processedData, viewMode, selectedDate, selectedMonth, selectedYear]);
 
-  const yearlyGraphData = useMemo(() => {
-    if (viewMode !== 'year') return [];
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return months.map((month, index) => {
-      const prefix = `${selectedYear}-${String(index + 1).padStart(2, '0')}`;
-      const entries = processedData.filter(d => d.date.startsWith(prefix));
-      return {
-        name: month,
-        produced: entries.reduce((acc, curr) => acc + curr.produced, 0),
-        consumed: entries.reduce((acc, curr) => acc + curr.consumed, 0)
-      };
-    });
-  }, [processedData, viewMode, selectedYear]);
-
   const stats = useMemo(() => {
     if (currentPeriodData.length === 0) return null;
     const count = currentPeriodData.length;
@@ -115,7 +95,7 @@ export default function App() {
       avgConsumed: (cons / count).toFixed(2),
       exported: exp.toFixed(1),
       imported: imp.toFixed(1),
-      netExport: (exp - imp).toFixed(1), // Net calculation
+      netExport: (exp - imp).toFixed(1),
       selfRate: prod > 0 ? ((self / prod) * 100).toFixed(0) : 0,
       gridRate: cons > 0 ? ((imp / cons) * 100).toFixed(0) : 0
     };
@@ -141,99 +121,110 @@ export default function App() {
     }
   };
 
-  if (loading && supabaseUrl) return <div className="flex h-screen items-center justify-center bg-white text-blue-600 font-bold uppercase tracking-widest animate-pulse">Initializing Dashboard...</div>;
+  if (loading && supabaseUrl) return <div className="flex h-screen items-center justify-center bg-white"><Zap className="text-indigo-600 animate-bounce" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      {/* NAVBAR */}
-      <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-md h-20 flex items-center px-10 justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100">
-            <Zap className="text-white w-5 h-5" fill="currentColor" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* MOBILE NAV OVERLAY */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 bg-white z-[100] flex flex-col p-8 space-y-6">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="font-black text-xl">SolarPro Menu</h1>
+            <X onClick={() => setIsMenuOpen(false)} />
           </div>
-          <h1 className="text-xl font-black tracking-tighter text-slate-900">SOLAR<span className="text-indigo-600">PRO</span></h1>
+          <button onClick={() => {setActiveTab('dashboard'); setIsMenuOpen(false)}} className="text-2xl font-black text-left">Analytics</button>
+          <button onClick={() => {setActiveTab('admin'); setIsMenuOpen(false)}} className="text-2xl font-black text-left">Management</button>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          <button onClick={() => setActiveTab('dashboard')} className={`px-8 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'dashboard' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>ANALYTICS</button>
-          <button onClick={() => setActiveTab('admin')} className={`px-8 py-2.5 rounded-xl text-xs font-black transition-all ${activeTab === 'admin' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>DATABASE</button>
+      )}
+
+      {/* HEADER */}
+      <nav className="h-20 bg-white border-b border-slate-200 flex items-center px-6 md:px-10 justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <Zap className="text-white w-4 h-4" fill="currentColor" />
+          </div>
+          <h1 className="text-lg font-black tracking-tighter">SOLAR<span className="text-indigo-600">PRO</span></h1>
         </div>
+        
+        <div className="hidden md:flex bg-slate-100 p-1 rounded-xl border">
+          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === 'dashboard' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>ANALYTICS</button>
+          <button onClick={() => setActiveTab('admin')} className={`px-6 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === 'admin' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>DATABASE</button>
+        </div>
+        
+        <button className="md:hidden p-2" onClick={() => setIsMenuOpen(true)}>
+          <Menu />
+        </button>
       </nav>
 
-      <main className="max-w-[1400px] mx-auto p-10">
+      <main className="max-w-[1400px] mx-auto p-4 md:p-10 pb-24 md:pb-10">
         {activeTab === 'dashboard' ? (
-          <div className="space-y-10 animate-in fade-in duration-700">
-            
-            {/* DATE CONTROLS */}
-            <div className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-6 bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
+          <div className="space-y-6 md:space-y-10">
+            {/* CONTROLS */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 md:p-8 rounded-3xl md:rounded-[40px] border border-slate-200 shadow-sm">
               <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">System Intelligence</h2>
-                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                  <Activity size={12} className="text-emerald-500" /> All systems operational
+                <h2 className="text-2xl md:text-3xl font-black tracking-tighter">Energy Overview</h2>
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <Activity size={12} className="text-emerald-500" /> Active Telemetry
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+              <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-3">
+                <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl w-full md:w-auto">
                   {['day', 'month', 'year'].map(m => (
-                    <button key={m} onClick={() => setViewMode(m)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{m}</button>
+                    <button key={m} onClick={() => setViewMode(m)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>{m}</button>
                   ))}
                 </div>
-                <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
-                <div className="flex items-center bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+                <div className="w-full md:w-auto flex items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <Calendar size={14} className="text-indigo-500 mr-2" />
-                  {viewMode === 'day' ? <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-transparent font-black outline-none text-xs" /> :
-                   viewMode === 'month' ? <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent font-black outline-none text-xs" /> :
-                   <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent font-black outline-none text-xs"><option value="2026">2026</option><option value="2025">2025</option></select>}
+                  {viewMode === 'day' ? <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-transparent font-black outline-none text-xs w-full" /> :
+                   viewMode === 'month' ? <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent font-black outline-none text-xs w-full" /> :
+                   <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent font-black outline-none text-xs w-full"><option value="2026">2026</option><option value="2025">2025</option></select>}
                 </div>
               </div>
             </div>
 
-            {/* MAIN STATS */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-              <MetricCard title="Solar Harvest" total={stats?.totalProduced} avg={stats?.avgProduced} color="bg-amber-400" icon={<Sun size={20}/>} 
-                details={[{ label: "Direct Use", p: stats?.selfRate, c: "bg-amber-400" }, { label: "Grid Feed", p: 100-stats?.selfRate, c: "bg-slate-200" }]} />
-              <MetricCard title="House Demand" total={stats?.totalConsumed} avg={stats?.avgConsumed} color="bg-indigo-600" icon={<Home size={20}/>} 
-                details={[{ label: "Solar Share", p: 100-stats?.gridRate, c: "bg-indigo-400" }, { label: "Grid Import", p: stats?.gridRate, c: "bg-slate-900" }]} />
+            {/* METRIC CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              <SummaryCard title="Solar Yield" total={stats?.totalProduced} avg={stats?.avgProduced} unit="kWh" icon={<Sun className="text-amber-500" />}
+                details={[{ label: "Direct Use", p: stats?.selfRate, c: "bg-amber-400" }, { label: "Grid Feed", p: 100-stats?.selfRate, c: "bg-slate-100" }]} />
+              <SummaryCard title="House Load" total={stats?.totalConsumed} avg={stats?.avgConsumed} unit="kWh" icon={<Home className="text-indigo-500" />}
+                details={[{ label: "Solar Powered", p: 100-stats?.gridRate, c: "bg-indigo-400" }, { label: "Imported", p: stats?.gridRate, c: "bg-slate-900" }]} />
               
-              {/* NEW EXPORT/IMPORT ANALYTICS PANEL */}
-              <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div className="space-y-8">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Grid Exchange Analytics</h3>
-                  <div className="space-y-6">
-                    <GridStat label="Total Exported" val={`${stats?.exported} kWh`} icon={<ArrowUpRight className="text-amber-500"/>} />
-                    <GridStat label="Total Imported" val={`${stats?.imported} kWh`} icon={<ArrowDownLeft className="text-indigo-500"/>} />
-                    <div className="pt-6 border-t">
-                      <GridStat label="Net Grid Export" val={`${stats?.netExport} kWh`} icon={<Zap className="text-emerald-500"/>} sub={Number(stats?.netExport) >= 0 ? "SURPLUS" : "DEFICIT"} />
-                    </div>
+              <div className="bg-white p-8 rounded-3xl md:rounded-[40px] border border-slate-200 shadow-sm flex flex-col justify-between">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Grid Intelligence</h3>
+                <div className="space-y-6">
+                  <GridMetric label="Total Exported" val={`${stats?.exported} kWh`} icon={<ArrowUpRight className="text-amber-500"/>} />
+                  <GridMetric label="Total Imported" val={`${stats?.imported} kWh`} icon={<ArrowDownLeft className="text-indigo-500"/>} />
+                  <div className="pt-6 border-t">
+                    <GridMetric label="Net Balance" val={`${stats?.netExport} kWh`} icon={<Zap className="text-emerald-500"/>} sub={Number(stats?.netExport) >= 0 ? "SURPLUS" : "DEFICIT"} />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* CHART */}
-            <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm relative overflow-hidden group">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3 mb-12">
-                <BarChart3 size={16} className="text-indigo-600" /> Load Distribution Trends
+            <div className="bg-white p-6 md:p-10 rounded-3xl md:rounded-[48px] border border-slate-200 shadow-sm">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8 flex items-center gap-2">
+                <BarChart3 size={16} className="text-indigo-600" /> System Distribution Trend
               </h3>
-              <div className="h-80">
+              <div className="h-64 md:h-80 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   {viewMode === 'year' ? (
-                    <BarChart data={yearlyGraphData}>
+                    <BarChart data={processedData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
-                      <YAxis fontSize={10} axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                      <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} />
                       <Tooltip cursor={{fill: 'rgba(0,0,0,0.02)'}} />
-                      <Bar dataKey="produced" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={30} />
-                      <Bar dataKey="consumed" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={30} />
+                      <Bar dataKey="produced" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="consumed" fill="#4f46e5" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   ) : (
                     <AreaChart data={currentPeriodData}>
-                      <defs><linearGradient id="areaColor" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/><stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/></linearGradient></defs>
+                      <defs><linearGradient id="gProd" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/><stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/></linearGradient></defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="date" fontSize={10} tickFormatter={(v) => v.split('-').pop()} axisLine={false} tickLine={false} tick={{fill: '#94a3b8'}} />
+                      <XAxis dataKey="date" fontSize={9} tickFormatter={(v) => v.split('-').pop()} axisLine={false} tickLine={false} />
                       <Tooltip />
-                      <Area type="monotone" dataKey="produced" stroke="#f59e0b" strokeWidth={3} fill="transparent" />
-                      <Area type="monotone" dataKey="consumed" stroke="#4f46e5" strokeWidth={3} fill="url(#areaColor)" />
+                      <Area type="monotone" dataKey="produced" stroke="#f59e0b" strokeWidth={2} fill="transparent" />
+                      <Area type="monotone" dataKey="consumed" stroke="#4f46e5" strokeWidth={2} fill="url(#gProd)" />
                     </AreaChart>
                   )}
                 </ResponsiveContainer>
@@ -241,43 +232,43 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="max-w-6xl mx-auto space-y-10">
+          <div className="max-w-6xl mx-auto space-y-6">
             {!adminAuth ? (
-              <div className="bg-white p-16 rounded-[56px] border border-slate-200 shadow-2xl max-w-lg mx-auto mt-10 text-center">
-                <h2 className="text-2xl font-black text-slate-900 mb-8 tracking-tighter uppercase">Authorized Entry Only</h2>
-                <input type="password" placeholder="Passcode" className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 mb-6 text-center font-black tracking-[0.5em] outline-none" onChange={(e) => setPassword(e.target.value)} />
-                <button onClick={() => password === 'admin123' ? setAdminAuth(true) : alert('Denied')} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black shadow-xl">UNLOCK DATABASE</button>
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-2xl max-w-md mx-auto mt-10 text-center">
+                <h2 className="text-xl font-black mb-6 tracking-tighter">Enter Credentials</h2>
+                <input type="password" placeholder="••••" className="w-full p-4 bg-slate-50 border rounded-xl text-center mb-4 font-black" onChange={(e) => setPassword(e.target.value)} />
+                <button onClick={() => password === 'admin123' ? setAdminAuth(true) : alert('No')} className="w-full bg-slate-900 text-white py-4 rounded-xl font-black">UNLOCK</button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="bg-white p-10 rounded-[40px] border border-slate-200 h-fit shadow-sm">
-                  <h3 className="font-black text-[10px] uppercase text-slate-400 mb-8 tracking-widest">Add Daily Record</h3>
-                  <form onSubmit={addEntry} className="space-y-6">
-                    <FormInput label="Date" type="date" val={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
-                    <FormInput label="Solar Produced (kWh)" type="number" val={formData.produced} onChange={(e) => setFormData({...formData, produced: e.target.value})} />
-                    <FormInput label="Exported to Grid (kWh)" type="number" val={formData.exported} onChange={(e) => setFormData({...formData, exported: e.target.value})} />
-                    <FormInput label="Imported to Home (kWh)" type="number" val={formData.imported} onChange={(e) => setFormData({...formData, imported: e.target.value})} />
-                    <button className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg shadow-indigo-100 flex items-center justify-center gap-3 text-xs uppercase tracking-widest">
-                      <MousePointerClick size={16}/> Push to Cloud
-                    </button>
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="w-full lg:w-1/3 bg-white p-8 rounded-3xl border shadow-sm">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 mb-6">Log Data</h3>
+                  <form onSubmit={addEntry} className="space-y-4">
+                    <FormRow label="Date" type="date" val={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
+                    <FormRow label="Solar Yield" type="number" val={formData.produced} onChange={(e) => setFormData({...formData, produced: e.target.value})} />
+                    <FormRow label="Export Grid" type="number" val={formData.exported} onChange={(e) => setFormData({...formData, exported: e.target.value})} />
+                    <FormRow label="Import Home" type="number" val={formData.imported} onChange={(e) => setFormData({...formData, imported: e.target.value})} />
+                    <button className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-xs">SAVE RECORD</button>
                   </form>
                 </div>
-                <div className="lg:col-span-2 bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[750px]">
-                  <div className="p-6 bg-slate-50 border-b flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    Master Energy Ledger <button onClick={() => setAdminAuth(false)} className="text-red-500 hover:underline">Logout</button>
+                <div className="w-full lg:w-2/3 bg-white rounded-3xl border shadow-sm overflow-hidden flex flex-col h-[600px]">
+                  <div className="p-4 bg-slate-50 border-b flex justify-between items-center text-[9px] font-black text-slate-500 uppercase">
+                    Ledger <button onClick={() => setAdminAuth(false)} className="text-red-500 underline">Logout</button>
                   </div>
-                  <div className="overflow-y-auto custom-scrollbar">
+                  <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase sticky top-0 z-10">
-                        <tr><th className="p-6 text-left">Date</th><th className="p-6 text-right">Solar</th><th className="p-6 text-right">House</th><th className="p-6"></th></tr>
+                      <thead className="bg-slate-50 text-slate-400 text-[9px] font-black uppercase sticky top-0">
+                        <tr><th className="p-4 text-left">Date</th><th className="p-4 text-right">Yield</th><th className="p-4 text-right">House</th><th className="p-4"></th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {solarData.slice().reverse().map(e => (
-                          <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="p-6 font-bold text-slate-400">{e.date}</td>
-                            <td className="p-6 text-right font-black text-amber-500">+{e.produced}</td>
-                            <td className="p-6 text-right font-black text-slate-800">{(e.produced - e.exported + e.imported).toFixed(2)}</td>
-                            <td className="p-6 text-center"><button onClick={() => deleteEntry(e.id)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-600 transition-all"><Trash2 size={18}/></button></td>
+                          <tr key={e.id} className="hover:bg-slate-50 group">
+                            <td className="p-4 font-bold text-slate-400">{e.date}</td>
+                            <td className="p-4 text-right font-black text-amber-500">+{e.produced}</td>
+                            <td className="p-4 text-right font-black text-slate-900">{(e.produced - e.exported + e.imported).toFixed(1)}</td>
+                            <td className="p-4 text-center">
+                              <button onClick={() => deleteEntry(e.id)} className="text-red-300 hover:text-red-600"><Trash2 size={16}/></button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -293,24 +284,24 @@ export default function App() {
   );
 }
 
-// SUB-COMPONENTS
-function MetricCard({ title, total, avg, icon, details }) {
+// UI BLOCKS
+function SummaryCard({ title, total, avg, unit, icon, details }) {
   return (
-    <div className="bg-white p-10 rounded-[48px] border border-slate-200 shadow-sm flex flex-col items-start gap-10">
-      <div className="flex justify-between items-center w-full">
+    <div className="bg-white p-8 rounded-3xl md:rounded-[40px] border border-slate-200 shadow-sm space-y-8">
+      <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-slate-50 rounded-2xl text-slate-600">{icon}</div>
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</h3>
+          <div className="p-2 bg-slate-50 rounded-xl">{icon}</div>
+          <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{title}</h3>
         </div>
-        {avg && <div className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase">Avg: {avg}</div>}
+        <div className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">AVG: {avg}</div>
       </div>
-      <div className="w-full space-y-8">
-        <h4 className="text-6xl font-black text-slate-900 tracking-tighter">{total || '0.0'}<span className="text-lg font-medium text-slate-300 ml-2">kWh</span></h4>
+      <div className="space-y-6">
+        <h4 className="text-5xl font-black tracking-tighter">{total || '0.0'}<span className="text-sm font-medium text-slate-300 ml-1">{unit}</span></h4>
         <div className="space-y-4">
           {details.map((item, i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">{item.label}</span><span className="text-slate-900">{item.p}%</span></div>
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${item.c}`} style={{ width: `${item.p}%` }}></div></div>
+            <div key={i} className="space-y-1">
+              <div className="flex justify-between text-[9px] font-black uppercase"><span className="text-slate-400">{item.label}</span><span>{item.p}%</span></div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className={`h-full ${item.c}`} style={{ width: `${item.p}%` }}></div></div>
             </div>
           ))}
         </div>
@@ -319,24 +310,24 @@ function MetricCard({ title, total, avg, icon, details }) {
   );
 }
 
-function GridStat({ label, val, icon, sub }) {
+function GridMetric({ label, val, icon, sub }) {
   return (
-    <div className="flex items-start gap-5">
-      <div className="p-3 bg-slate-50 rounded-2xl">{icon}</div>
+    <div className="flex items-center gap-4">
+      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">{icon}</div>
       <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        <p className="text-xl font-black text-slate-900 leading-tight mt-1">{val}</p>
+        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-lg font-black leading-none">{val}</p>
         {sub && <p className={`text-[8px] font-black mt-1 ${val.startsWith('-') ? 'text-red-500' : 'text-emerald-500'}`}>{sub}</p>}
       </div>
     </div>
   );
 }
 
-function FormInput({ label, type, val, onChange }) {
+function FormRow({ label, type, val, onChange }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-      <input type={type} step="0.01" value={val} onChange={onChange} required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold text-sm outline-none focus:border-indigo-500/50 transition-all" />
+      <input type={type} step="0.01" value={val} onChange={onChange} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-indigo-500" />
     </div>
   );
 }
